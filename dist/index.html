@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Color Lines </title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
+        <meta charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="css/layout.css">
+        <style>
+            html {height:100%}
+            body {height:100%; margin:0; padding:0; overflow:hidden; background:#000}
+        </style>
+        <script src="js/find-path.js"></script>
+        <script src="js/main.js"></script>
+    </head>
+    <body>
+        <div class="lines">
+            <div class="lines__wrapper">
+                <div class="lines__gamefield js-lines"></div>
+                <div class="lines__control">
+                    <button class="lines__button" onclick="next()"> NEXT </button>
+                    <button class="lines__button" onclick="restart()"> RESTART </button>
+                    <input  class="lines__button js-lines-score" disabled="true" value="0" />
+                </div>
+            </div>
+        </div>
+        <script>
+            const score = document.querySelector(".js-lines-score");
+            const lines = new Lines(".js-lines");
+
+            lines.addEvent("onChangeScore", function(e) {
+                
+                score.value = e.score;
+            });
+            function restart() {lines.startGame()};
+            function next() {lines.addBalls(3)};
+        </script>
+    </body>
+</html>
