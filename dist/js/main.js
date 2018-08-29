@@ -27,7 +27,7 @@ function Lines(el)
     
     canvas.width  = w;                                                  // set size game field
     canvas.height = h;
-    canvas.addEventListener("click", (e) => this.hittest(e));
+    canvas.addEventListener("click", (e) => this.hitTest(e));
     
     this.options = options;
     this.handlers = [];
@@ -63,6 +63,7 @@ Lines.prototype.startGame = function()
         };
     };
     this.activeCell = null;                                             // reset current active cell
+    this.lastBall = [];
     this.score = 0;
     this.addBalls(options.countStartBall);
     this.trigger("onChangeScore", {score:this.score});
@@ -87,12 +88,10 @@ Lines.prototype.addBalls = function(count)
         empty.splice(emptyRand, 1);                                     // remove free cell
 
         gameMap[y][x].ball = color[colorRand];
-    };
 
-    const countLines = this.removeLines();
+        this.lastBall = [x,y];
 
-    if(countLines === 0)
-    {
+        this.removeLines();                                             // remove lines around each new ball
         this.render();
     };
     if(empty.length === 0) setTimeout(() => this.gameOver(), 200);
@@ -120,13 +119,15 @@ Lines.prototype.moveBall = function(sx, sy, dx, dy)
     gameMap[dy][dx].ball = gameMap[sy][sx].ball;                        // copy to destination position
     gameMap[sy][sx].ball = null;                                        // remove from source position
 
+    this.lastBall = [dx,dy];
+
     const countLines = this.removeLines();
     
     if(countLines === 0)
     {
         this.addBalls(options.countNextBall);
     }
-    else {
+    else {                                                              // not add new balls
         this.score += options.revenue;
         this.render();
         this.trigger("onChangeScore", {score:this.score});
@@ -155,110 +156,80 @@ Lines.prototype.getEmptyCell = function()
 
 Lines.prototype.removeLines = function()
 {
-    const horizontal = this.findRows();
-
-    for(let i in horizontal)
-    {
-        this.removeBalls(horizontal[i]);
-    }
-    const vertical = this.findColumns();
-
-    for(let i in vertical)
-    {
-        this.removeBalls(vertical[i]);
-    }
-    return horizontal.length + vertical.length;
-};
-
-Lines.prototype.findRows = function()
-{
     const options = this.options;
     const gameMap = this.gameMap;
-    const lines = [];
-    
-    for(let y = 0; y < gameMap.length; y++)                             // loop rows
+
+    const cx = this.lastBall[0];                                        // last added ball
+    const cy = this.lastBall[1];
+
+    const direction = {                                                 // sequence affects the priority queue
+
+        H: [-1, 0, 1, 0],                                               // [ — ] - horizontal (negative and positive direction)
+        V: [ 0,-1, 0, 1],                                               // [ | ] - vertical
+        D: [-1,-1, 1, 1],                                               // [ \ ] - main diagonal
+        A: [ 1,-1,-1, 1],                                               // [ / ] - anti-diagonal
+    };
+
+    let countLines = 0;
+
+    for(let i in direction)
     {
-        let cells = [];
+        const balls = [];
 
-        for(let x = 0; x < gameMap[0].length - 1; x++)
+        let nx = cx;                                                    // init positive and negative coordinates
+        let ny = cy;
+        let px = cx;
+        let py = cy;
+
+        balls.push(gameMap[cy][cx]);                                    // init the first ball
+
+        while(true)                                                     // negative search
         {
-            const currCell = gameMap[y][x+0];
-            const nextCell = gameMap[y][x+1];
-            
-            if(currCell.ball)                                           // in the current cell has a ball
+            nx += direction[i][0];
+            ny += direction[i][1];
+
+            if(this.inArray(nx, ny))
             {
-                if(cells.length === 0)                                  // init the first ball
-                {
-                    cells.push(currCell);
-                };
+                const neighbor = this.compare(cx, cy, nx, ny);
 
-                if(currCell.ball === nextCell.ball)                     // the next ball of the same color
-                {       
-                    cells.push(nextCell);
+                if(neighbor)                                            // adjacent ball of the same color
+                {
+                    balls.push(neighbor); 
                 }
-                else {                                                  // event: "End Of Series"
-                    
-                    if(cells.length >= options.countMinLine)
-                    {
-                        lines.push(cells);                              // save the found line
-                    };
-                    cells = [];                                         // reset any line
-                };
-            };
+                else break;                                             // adjacent ball of a different color
+            }
+            else break;                                                 // this is the exit beyond the array
         };
-        if(cells.length >= options.countMinLine)                        // event: "End Of Row" (if the first event failed)
+
+        while(true)                                                     // positive direction
         {
-            lines.push(cells);
+            px += direction[i][2];
+            py += direction[i][3];
+
+            if(this.inArray(px, py))
+            {
+                const neighbor = this.compare(cx, cy, px, py);
+
+                if(neighbor)
+                {
+                    balls.push(neighbor); 
+                }
+                else break;
+            }
+            else break;
+        };
+
+        if(balls.length >= options.countMinLine)                        // minimum line length
+        {
+            this.removeBalls(balls);
+            
+            countLines++;
         };
     };
-    return lines;                                                       // return all found lines
+    return countLines;                                                  // count of lines found
 };
 
-Lines.prototype.findColumns = function()
-{
-    const options = this.options;
-    const gameMap = this.gameMap;
-    const lines = [];
-    
-    for(let x = 0; x < gameMap[0].length; x++)                          // loop columns
-    {
-        let cells = [];
-
-        for(let y = 0; y < gameMap.length - 1; y++)
-        {
-            const currCell = gameMap[y+0][x];
-            const nextCell = gameMap[y+1][x];
-            
-            if(currCell.ball)                                           // in the current cell has a ball
-            {
-                if(cells.length === 0)                                  // init the first ball
-                {
-                    cells.push(currCell);
-                };
-
-                if(currCell.ball === nextCell.ball)                     // the next ball of the same color
-                {       
-                    cells.push(nextCell);
-                }
-                else {                                                  // event: "End Of Series"
-                    
-                    if(cells.length >= options.countMinLine)
-                    {
-                        lines.push(cells);                              // save the found line
-                    };
-                    cells = [];                                         // reset any line
-                };
-            };
-        };
-        if(cells.length >= options.countMinLine)                        // event: "End Of Row" (if the first event failed)
-        {
-            lines.push(cells);
-        };
-    };
-    return lines;                                                       // return all found lines
-};
-
-Lines.prototype.hittest = function(e)
+Lines.prototype.hitTest = function(e)
 {
     const options = this.options;
     const gameMap = this.gameMap;
@@ -356,6 +327,30 @@ Lines.prototype.trigger = function(type, param)                         // event
         event[i].call(null, param);
     };
 };
+
+Lines.prototype.inArray = function(cx, cy)
+{
+    const gameMap = this.gameMap;
+
+    const wmax = gameMap[0].length;
+    const hmax = gameMap.length;
+
+    return cx >= 0 && cx < wmax && cy >= 0 && cy < hmax;
+};
+
+Lines.prototype.compare =  function(cx, cy, dx, dy)
+{
+    const gameMap = this.gameMap;
+
+    const A = gameMap[cy][cx]["ball"];
+    const B = gameMap[dy][dx]["ball"];
+
+    if((A !== null) && (A === B))
+    {
+        return gameMap[dy][dx];
+    }
+    return false;
+}
 
 Lines.prototype.render = function()
 {
