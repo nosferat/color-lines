@@ -111,15 +111,26 @@ Lines.prototype.removeBalls = function(balls)
     this.render();
 };
 
-Lines.prototype.moveBall = function(sx, sy, dx, dy)
+Lines.prototype.moveBall = async function(path)
 {
     const options = this.options;
     const gameMap = this.gameMap;
 
-    gameMap[dy][dx].ball = gameMap[sy][sx].ball;                        // copy to destination position
-    gameMap[sy][sx].ball = null;                                        // remove from source position
+    for(let i = 0; i < path.length - 1; i++)                            // visualization of moving the ball
+    {
+        const sx = path[i+0][0];
+        const sy = path[i+0][1];
+        const dx = path[i+1][0];
+        const dy = path[i+1][1];
 
-    this.lastBall = [dx,dy];
+        gameMap[dy][dx].ball = gameMap[sy][sx].ball;                    // copy to destination position
+        gameMap[sy][sx].ball = null;                                    // remove from source position
+        
+        this.lastBall = [dx,dy];
+        this.render();
+
+        await this.sleep(30);
+    };
 
     const countLines = this.removeLines();
     
@@ -159,7 +170,7 @@ Lines.prototype.removeLines = function()
     const options = this.options;
     const gameMap = this.gameMap;
 
-    const cx = this.lastBall[0];                                        // last added ball
+    const cx = this.lastBall[0];                                        // last added or moved ball
     const cy = this.lastBall[1];
 
     const direction = {                                                 // sequence affects the priority queue
@@ -261,13 +272,13 @@ Lines.prototype.hitTest = function(e)
         }
         else {                                                          // click on the free cell
             const polygon = this.getPolygon();
-            const pathFound = this.findPath.search(polygon, sx, sy, x, y);
+            const path = this.findPath.search(polygon, sx, sy, x, y);
 
-            if(pathFound)                                               // passage is possible
-            {   
+            if(path)                                                    // passage is possible
+            {
                 this.gameMap[sy][sx].color = options.normalCellColor;
                 this.activeCell = null;                                 // reset active cell
-                this.moveBall(sx, sy, x, y);
+                this.moveBall(path);
             };
         };
     };
@@ -338,7 +349,7 @@ Lines.prototype.inArray = function(cx, cy)
     return cx >= 0 && cx < wmax && cy >= 0 && cy < hmax;
 };
 
-Lines.prototype.compare =  function(cx, cy, dx, dy)
+Lines.prototype.compare = function(cx, cy, dx, dy)
 {
     const gameMap = this.gameMap;
 
@@ -350,7 +361,12 @@ Lines.prototype.compare =  function(cx, cy, dx, dy)
         return gameMap[dy][dx];
     }
     return false;
-}
+};
+
+Lines.prototype.sleep = function(ms)
+{
+    return new Promise(resolve => setTimeout(resolve, ms));
+};
 
 Lines.prototype.render = function()
 {
