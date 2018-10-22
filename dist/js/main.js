@@ -169,66 +169,50 @@ Lines.prototype.removeLines = function()
 {
     const options = this.options;
     const gameMap = this.gameMap;
+    const self = this;
 
     const cx = this.lastBall[0];                                        // last added or moved ball
     const cy = this.lastBall[1];
+    
+    let countLines = 0;
 
-    const direction = {                                                 // sequence affects the priority queue
+    const direction = {                                                 // sequence affects the priority queue:
 
-        H: [-1, 0, 1, 0],                                               // [ — ] - horizontal (negative and positive direction)
+        H: [-1, 0, 1, 0],                                               // [ — ] - horizontal ([0,1][2,3] - negative and positive direction)
         V: [ 0,-1, 0, 1],                                               // [ | ] - vertical
         D: [-1,-1, 1, 1],                                               // [ \ ] - main diagonal
         A: [ 1,-1,-1, 1],                                               // [ / ] - anti-diagonal
     };
 
-    let countLines = 0;
-
     for(let i in direction)
     {
         const balls = [];
 
-        let nx = cx;                                                    // init positive and negative coordinates
-        let ny = cy;
-        let px = cx;
-        let py = cy;
-
         balls.push(gameMap[cy][cx]);                                    // init the first ball
 
-        while(true)                                                     // negative search
+        function findLine(dx, dy, x, y)
         {
-            nx += direction[i][0];
-            ny += direction[i][1];
-
-            if(this.inArray(nx, ny))
+            while(true)
             {
-                const neighbor = this.compare(cx, cy, nx, ny);
-
-                if(neighbor)                                            // adjacent ball of the same color
+                dx += direction[i][x];
+                dy += direction[i][y];
+                
+                if(self.inArray(dx, dy))
                 {
-                    balls.push(neighbor); 
+                    const neighbor = self.compare(cx, cy, dx, dy);
+                    
+                    if(neighbor)                                        // adjacent ball of the same color
+                    {
+                        balls.push(neighbor);
+                    }
+                    else break;                                         // adjacent ball of a different color
                 }
-                else break;                                             // adjacent ball of a different color
-            }
-            else break;                                                 // this is the exit beyond the array
+                else break;                                             // this is the exit beyond the array
+            };
         };
 
-        while(true)                                                     // positive direction
-        {
-            px += direction[i][2];
-            py += direction[i][3];
-
-            if(this.inArray(px, py))
-            {
-                const neighbor = this.compare(cx, cy, px, py);
-
-                if(neighbor)
-                {
-                    balls.push(neighbor); 
-                }
-                else break;
-            }
-            else break;
-        };
+        findLine(cx, cy, 0, 1);                                         // negative search from current position
+        findLine(cx, cy, 2, 3);                                         // positive search
 
         if(balls.length >= options.countMinLine)                        // minimum line length
         {

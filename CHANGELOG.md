@@ -6,3 +6,6 @@
 
 # 1.0.2
 - Visualization of moving the ball
+
+# 1.0.3
+- Optimized code for the removeLines function
